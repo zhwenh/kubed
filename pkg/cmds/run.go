@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -14,12 +15,20 @@ import (
 	scs "github.com/appscode/stash/client/clientset"
 	vcs "github.com/appscode/voyager/client/clientset"
 	pcm "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
+	"github.com/fsnotify/fsnotify"
 	kcs "github.com/k8sdb/apimachinery/client/clientset"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/client-go/kubernetes"
 	apiv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type Event struct {
+	Name string
+	Op   Op
+}
+
+type Op uint32
 
 // runtime.GOPath() + "/src/github.com/appscode/kubed/hack/config/clusterconfig.yaml"
 func NewCmdRun() *cobra.Command {
@@ -41,7 +50,8 @@ func NewCmdRun() *cobra.Command {
 			Run(opt)
 		},
 	}
-
+	fmt.Println("Hello World!!!!")
+	fmt.Println("read config file")
 	cmd.Flags().StringVar(&opt.KubeConfig, "kubeconfig", opt.KubeConfig, "Path to kubeconfig file with authorization information (the master location is set by the master flag).")
 	cmd.Flags().StringVar(&opt.Master, "master", opt.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig)")
 	cmd.Flags().StringVar(&opt.ConfigPath, "clusterconfig", opt.ConfigPath, "Path to cluster config file")
@@ -50,6 +60,8 @@ func NewCmdRun() *cobra.Command {
 	cmd.Flags().StringVar(&opt.WebAddress, "web.address", opt.WebAddress, "Address to listen on for web interface and telemetry.")
 	cmd.Flags().DurationVar(&opt.ResyncPeriod, "resync-period", opt.ResyncPeriod, "If non-zero, will re-list this often. Otherwise, re-list will be delayed aslong as possible (until the upstream source closes the watch or times out.")
 
+	fmt.Println("___________________________ Hello Test")
+	go fileWatchTest()
 	return cmd
 }
 
@@ -96,4 +108,37 @@ func namespace() string {
 		}
 	}
 	return apiv1.NamespaceDefault
+}
+
+func fileWatchTest() {
+	fmt.Println("-----------------File Watch Test Began----------------")
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		fmt.Println("Error Occured ***************")
+	}
+	defer watcher.Close()
+
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				log.Infoln("Event:-------------------------------------------------------", event, reflect.TypeOf(event))
+				if event.Op&fsnotify.Write == fsnotify.Write {
+					log.Infoln("modified file:", event.Name)
+				}
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					log.Infoln("Removed file:---------------", event.Name)
+				}
+			case err := <-watcher.Errors:
+				log.Infoln("error:", err)
+			}
+		}
+	}()
+
+	err = watcher.Add("/srv/kubed/")
+	if err != nil {
+		log.Fatalln("Error", err)
+	}
+	<-done
 }
