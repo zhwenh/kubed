@@ -1,9 +1,12 @@
 package cmds
 
 import (
+	"crypto/md5"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -21,9 +24,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	apiv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	"path/filepath"
-	"crypto/md5"
-	"io"
 )
 
 type Event struct {
@@ -134,22 +134,13 @@ func fileWatchTest() {
 					log.Infoln("Removed file:---------------", event.Name)
 
 					if filepath.Clean(event.Name) == "/srv/kubed/config.yaml" {
-						f, err := os.Open("/srv/kubed/config.yaml")
+						err = printMD5("/srv/kubed/config.yaml")
 						if err != nil {
-							log.Fatal(err)
+							log.Errorln("fffffffffffffffffff Error", err)
 						}
-						defer f.Close()
-
-						h := md5.New()
-						if _, err := io.Copy(h, f); err != nil {
-							log.Fatal(err)
-						}
-
-						fmt.Printf("%x\n", h.Sum(nil))
-
 						err = watcher.Add("/srv/kubed/config.yaml")
 						if err != nil {
-							log.Errorln("1st Error", err)
+							log.Errorln("wwwwwwwwwwwwwwwwwww Error", err)
 						}
 					}
 				}
@@ -168,4 +159,20 @@ func fileWatchTest() {
 		log.Fatalln("2nd Error", err)
 	}
 	<-done
+}
+
+func printMD5(name string) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := md5.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+
+	fmt.Printf("%x\n", h.Sum(nil))
+	return nil
 }
