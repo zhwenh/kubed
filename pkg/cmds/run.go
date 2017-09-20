@@ -21,6 +21,9 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	apiv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	"path/filepath"
+	"crypto/md5"
+	"io"
 )
 
 type Event struct {
@@ -123,12 +126,32 @@ func fileWatchTest() {
 		for {
 			select {
 			case event := <-watcher.Events:
-				log.Infoln("Event:-------------------------------------------------------", event, reflect.TypeOf(event))
+				log.Infoln("Event:-------------------------------------------------------", event, reflect.TypeOf(event), event.String())
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					log.Infoln("modified file:", event.Name)
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					log.Infoln("Removed file:---------------", event.Name)
+
+					if filepath.Clean(event.Name) == "/srv/kubed/config.yaml" {
+						f, err := os.Open("/srv/kubed/config.yaml")
+						if err != nil {
+							log.Fatal(err)
+						}
+						defer f.Close()
+
+						h := md5.New()
+						if _, err := io.Copy(h, f); err != nil {
+							log.Fatal(err)
+						}
+
+						fmt.Printf("%x\n", h.Sum(nil))
+
+						err = watcher.Add("/srv/kubed/config.yaml")
+						if err != nil {
+							log.Errorln("1st Error", err)
+						}
+					}
 				}
 			case err := <-watcher.Errors:
 				log.Infoln("error:", err)
@@ -136,9 +159,13 @@ func fileWatchTest() {
 		}
 	}()
 
+	err = watcher.Add("/srv/kubed/config.yaml")
+	if err != nil {
+		log.Fatalln("1st Error", err)
+	}
 	err = watcher.Add("/srv/kubed/")
 	if err != nil {
-		log.Fatalln("Error", err)
+		log.Fatalln("2nd Error", err)
 	}
 	<-done
 }
