@@ -46,11 +46,12 @@ func (op *Operator) WatchEvents() {
 					log.Infof("Event %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.eventer != nil &&
-						op.Config.EventForwarder.WarningEvents.Handle &&
-						op.Config.EventForwarder.WarningEvents.IsAllowed(res.Namespace) &&
+					messenger := op.Messenger()
+					if messenger != nil &&
+						messenger.Spec.WarningEvents.Handle &&
+						messenger.Spec.WarningEvents.IsAllowed(res.Namespace) &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.eventer.ForwardEvent(res)
+						err := op.messenger.ForwardEvent(res)
 						if err != nil {
 							log.Errorln(err)
 						}

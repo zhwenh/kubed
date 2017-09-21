@@ -67,7 +67,7 @@ type Operator struct {
 	searchIndex    *indexers.ResourceIndexer
 	reverseIndex   *indexers.ReverseIndexer
 	trashCan       *rbin.RecycleBin
-	eventer        *eventer.EventForwarder
+	messenger      *eventer.EventForwarder
 	cron           *cron.Cron
 	notifierLoader envconfig.LoaderFunc
 	configSyncer   *syncer.ConfigSyncer
@@ -93,10 +93,10 @@ func (op *Operator) TrashCan() *rbin.RecycleBin {
 	return op.trashCan
 }
 
-func (op *Operator) Eventer() *eventer.EventForwarder {
+func (op *Operator) Messenger() *eventer.EventForwarder {
 	op.m.Lock()
 	defer op.m.Unlock()
-	return op.eventer
+	return op.messenger
 }
 
 func (op *Operator) NotifierLoader() envconfig.LoaderFunc {
@@ -136,7 +136,7 @@ func (op *Operator) Setup() error {
 	}
 
 	if op.Config.EventForwarder != nil {
-		op.eventer = &eventer.EventForwarder{
+		op.messenger = &eventer.EventForwarder{
 			ClusterName: op.Config.ClusterName,
 			Spec:        *op.Config.EventForwarder,
 			Receivers:   op.Config.EventForwarder.Receivers,

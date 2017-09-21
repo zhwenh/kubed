@@ -49,11 +49,12 @@ func (op *Operator) WatchPersistentVolumeClaims() {
 						}
 					}
 
-					if op.eventer != nil &&
-						op.Config.EventForwarder.StorageAdded.Handle &&
-						op.Config.EventForwarder.StorageAdded.IsAllowed(res.Namespace) &&
+					messenger := op.Messenger()
+					if messenger != nil &&
+						messenger.Spec.StorageAdded.Handle &&
+						messenger.Spec.StorageAdded.IsAllowed(res.Namespace) &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
+						err := op.messenger.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
 						if err != nil {
 							log.Errorln(err)
 						}

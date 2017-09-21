@@ -49,10 +49,11 @@ func (op *Operator) WatchStorageClassV1() {
 						}
 					}
 
-					if op.eventer != nil &&
-						op.Config.EventForwarder.StorageAdded.Handle &&
+					messenger := op.Messenger()
+					if messenger != nil &&
+						messenger.Spec.StorageAdded.Handle &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
+						err := op.messenger.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
 						if err != nil {
 							log.Errorln(err)
 						}

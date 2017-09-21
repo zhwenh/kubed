@@ -42,10 +42,11 @@ func (op *Operator) WatchCertificateSigningRequests() {
 					log.Infof("CertificateSigningRequest %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.eventer != nil &&
-						op.Config.EventForwarder.CSREvents.Handle &&
+					messenger := op.Messenger()
+					if messenger != nil &&
+						messenger.Spec.CSREvents.Handle &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
+						err := op.messenger.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
 						if err != nil {
 							log.Errorln(err)
 						}
@@ -77,11 +78,12 @@ func (op *Operator) WatchCertificateSigningRequests() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if op.eventer != nil &&
-					op.Config.EventForwarder.CSREvents.Handle {
+				messenger := op.Messenger()
+				if messenger != nil &&
+					messenger.Spec.CSREvents.Handle {
 					for _, cond := range newRes.Status.Conditions {
 						if util.IsRecent(cond.LastUpdateTime) {
-							err := op.eventer.Forward(newRes.TypeMeta, newRes.ObjectMeta, string(cond.Type), newRes)
+							err := op.messenger.Forward(newRes.TypeMeta, newRes.ObjectMeta, string(cond.Type), newRes)
 							if err != nil {
 								log.Errorln(err)
 							}

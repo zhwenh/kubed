@@ -50,11 +50,12 @@ func (op *Operator) WatchIngresses() {
 						}
 					}
 
-					if op.eventer != nil &&
-						op.Config.EventForwarder.IngressAdded.Handle &&
-						op.Config.EventForwarder.IngressAdded.IsAllowed(res.Namespace) &&
+					messenger := op.Messenger()
+					if messenger != nil &&
+						messenger.Spec.IngressAdded.Handle &&
+						messenger.Spec.IngressAdded.IsAllowed(res.Namespace) &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
+						err := op.messenger.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
 						if err != nil {
 							log.Errorln(err)
 						}

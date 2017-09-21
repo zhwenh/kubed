@@ -49,11 +49,12 @@ func (op *Operator) WatchNodes() {
 						}
 					}
 
-					if op.eventer != nil &&
-						op.Config.EventForwarder.NodeAdded.Handle &&
-						op.Config.EventForwarder.NodeAdded.IsAllowed(res.Namespace) &&
+					messenger := op.Messenger()
+					if messenger != nil &&
+						messenger.Spec.NodeAdded.Handle &&
+						messenger.Spec.NodeAdded.IsAllowed(res.Namespace) &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
+						err := op.messenger.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
 						if err != nil {
 							log.Errorln(err)
 						}
