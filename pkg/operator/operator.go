@@ -64,15 +64,45 @@ type Operator struct {
 	Opt    Options
 	Config config.ClusterConfig
 
-	SearchIndex    *indexers.ResourceIndexer
-	ReverseIndex   *indexers.ReverseIndexer
-	TrashCan       *rbin.RecycleBin
-	Eventer        *eventer.EventForwarder
-	Cron           *cron.Cron
-	NotifierLoader envconfig.LoaderFunc
-	ConfigSyncer   *syncer.ConfigSyncer
+	searchIndex    *indexers.ResourceIndexer
+	reverseIndex   *indexers.ReverseIndexer
+	trashCan       *rbin.RecycleBin
+	eventer        *eventer.EventForwarder
+	cron           *cron.Cron
+	notifierLoader envconfig.LoaderFunc
+	configSyncer   *syncer.ConfigSyncer
 
-	sync.Mutex
+	m sync.Mutex
+}
+
+func (op *Operator) SearchIndex() *indexers.ResourceIndexer {
+	op.m.Lock()
+	defer op.m.Unlock()
+	return op.searchIndex
+}
+
+func (op *Operator) ReverseIndex() *indexers.ReverseIndexer {
+	op.m.Lock()
+	defer op.m.Unlock()
+	return op.reverseIndex
+}
+
+func (op *Operator) TrashCan() *rbin.RecycleBin {
+	op.m.Lock()
+	defer op.m.Unlock()
+	return op.trashCan
+}
+
+func (op *Operator) Eventer() *eventer.EventForwarder {
+	op.m.Lock()
+	defer op.m.Unlock()
+	return op.eventer
+}
+
+func (op *Operator) NotifierLoader() envconfig.LoaderFunc {
+	op.m.Lock()
+	defer op.m.Unlock()
+	return op.notifierLoader
 }
 
 func (op *Operator) Setup() error {
@@ -89,7 +119,7 @@ func (op *Operator) Setup() error {
 	}
 	op.Config = *cfg
 
-	op.NotifierLoader, err = op.getLoader()
+	op.notifierLoader, err = op.getLoader()
 	if err != nil {
 		return err
 	}
@@ -98,27 +128,27 @@ func (op *Operator) Setup() error {
 		if op.Config.RecycleBin.Path == "" {
 			op.Config.RecycleBin.Path = filepath.Join(op.Opt.ScratchDir, "transhcan")
 		}
-		op.TrashCan = &rbin.RecycleBin{
+		op.trashCan = &rbin.RecycleBin{
 			ClusterName: op.Config.ClusterName,
 			Spec:        *op.Config.RecycleBin,
-			Loader:      op.NotifierLoader,
+			Loader:      op.notifierLoader,
 		}
 	}
 
 	if op.Config.EventForwarder != nil {
-		op.Eventer = &eventer.EventForwarder{
+		op.eventer = &eventer.EventForwarder{
 			ClusterName: op.Config.ClusterName,
 			Receivers:   op.Config.EventForwarder.Receivers,
-			Loader:      op.NotifierLoader,
+			Loader:      op.notifierLoader,
 		}
 	}
 
 	if op.Config.EnableConfigSyncer {
-		op.ConfigSyncer = &syncer.ConfigSyncer{KubeClient: op.KubeClient}
+		op.configSyncer = &syncer.ConfigSyncer{KubeClient: op.KubeClient}
 	}
 
-	op.Cron = cron.New()
-	op.Cron.Start()
+	op.cron = cron.New()
+	op.cron.Start()
 
 	for _, j := range cfg.Janitors {
 		if j.Kind == config.JanitorInfluxDB {
@@ -137,7 +167,7 @@ func (op *Operator) Setup() error {
 		if err != nil {
 			return err
 		}
-		op.SearchIndex = si
+		op.searchIndex = si
 	}
 	// Enable pod -> service, service -> serviceMonitor indexing
 	if op.Config.APIServer.EnableReverseIndex {
@@ -145,7 +175,7 @@ func (op *Operator) Setup() error {
 		if err != nil {
 			return err
 		}
-		op.ReverseIndex = ri
+		op.reverseIndex = ri
 	}
 
 	op.Opt.ResyncPeriod = time.Minute * 2
@@ -225,18 +255,18 @@ func (op *Operator) RunAPIServer() {
 	// registered.
 	router := pat.New()
 	if op.Config.APIServer.EnableSearchIndex {
-		op.SearchIndex.RegisterRouters(router)
+		op.searchIndex.RegisterRouters(router)
 	}
 	// Enable pod -> service, service -> serviceMonitor indexing
 	if op.Config.APIServer.EnableReverseIndex {
-		router.Get("/api/v1/namespaces/:namespace/:resource/:name/services", http.HandlerFunc(op.ReverseIndex.Service.ServeHTTP))
+		router.Get("/api/v1/namespaces/:namespace/:resource/:name/services", http.HandlerFunc(op.reverseIndex.Service.ServeHTTP))
 		if util.IsPreferredAPIResource(op.KubeClient, prom.Group+"/"+prom.Version, prom.ServiceMonitorsKind) {
 			// Add Indexer only if Server support this resource
-			router.Get("/apis/"+prom.Group+"/"+prom.Version+"/namespaces/:namespace/:resource/:name/"+prom.ServiceMonitorName, http.HandlerFunc(op.ReverseIndex.ServiceMonitor.ServeHTTP))
+			router.Get("/apis/"+prom.Group+"/"+prom.Version+"/namespaces/:namespace/:resource/:name/"+prom.ServiceMonitorName, http.HandlerFunc(op.reverseIndex.ServiceMonitor.ServeHTTP))
 		}
 		if util.IsPreferredAPIResource(op.KubeClient, prom.Group+"/"+prom.Version, prom.PrometheusesKind) {
 			// Add Indexer only if Server support this resource
-			router.Get("/apis/"+prom.Group+"/"+prom.Version+"/namespaces/:namespace/:resource/:name/"+prom.PrometheusName, http.HandlerFunc(op.ReverseIndex.Prometheus.ServeHTTP))
+			router.Get("/apis/"+prom.Group+"/"+prom.Version+"/namespaces/:namespace/:resource/:name/"+prom.PrometheusName, http.HandlerFunc(op.reverseIndex.Prometheus.ServeHTTP))
 		}
 	}
 
@@ -269,7 +299,7 @@ func (op *Operator) RunElasticsearchCleaner() error {
 			if err != nil {
 				return err
 			}
-			op.Cron.AddFunc("@every 1h", func() {
+			op.cron.AddFunc("@every 1h", func() {
 				err := janitor.Cleanup()
 				if err != nil {
 					log.Errorln(err)
@@ -281,12 +311,12 @@ func (op *Operator) RunElasticsearchCleaner() error {
 }
 
 func (op *Operator) RunTrashCanCleaner() error {
-	if op.TrashCan == nil {
+	if op.trashCan == nil {
 		return nil
 	}
 
-	return op.Cron.AddFunc("@every 1h", func() {
-		err := op.TrashCan.Cleanup()
+	return op.cron.AddFunc("@every 1h", func() {
+		err := op.trashCan.Cleanup()
 		if err != nil {
 			log.Errorln(err)
 		}
@@ -363,7 +393,7 @@ func (op *Operator) RunSnapshotter() error {
 			log.Errorln(err)
 		}
 	}()
-	return op.Cron.AddFunc(op.Config.Snapshotter.Schedule, func() {
+	return op.cron.AddFunc(op.Config.Snapshotter.Schedule, func() {
 		err := snapshotter()
 		if err != nil {
 			log.Errorln(err)
