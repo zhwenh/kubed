@@ -138,6 +138,7 @@ func (op *Operator) Setup() error {
 	if op.Config.EventForwarder != nil {
 		op.eventer = &eventer.EventForwarder{
 			ClusterName: op.Config.ClusterName,
+			Spec:        *op.Config.EventForwarder,
 			Receivers:   op.Config.EventForwarder.Receivers,
 			Loader:      op.notifierLoader,
 		}

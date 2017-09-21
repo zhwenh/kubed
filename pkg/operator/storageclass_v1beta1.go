@@ -95,7 +95,7 @@ func (op *Operator) WatchStorageClassV1beta1() {
 					si.HandleUpdate(old, new)
 				}
 				tc := op.TrashCan()
-				if tc != nil && op.Config.RecycleBin.HandleUpdates {
+				if tc != nil && tc.Spec.HandleUpdates {
 					if !reflect.DeepEqual(oldRes.Labels, newRes.Labels) ||
 						!reflect.DeepEqual(oldRes.Annotations, newRes.Annotations) ||
 						!reflect.DeepEqual(oldRes.Parameters, newRes.Parameters) {

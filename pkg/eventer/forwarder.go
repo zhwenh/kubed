@@ -17,6 +17,7 @@ import (
 
 type EventForwarder struct {
 	ClusterName string
+	Spec        config.EventForwarderSpec
 	Receivers   []config.Receiver
 	Loader      envconfig.LoaderFunc
 }
