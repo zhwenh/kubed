@@ -32,8 +32,8 @@ func (op *Operator) watchNamespaces() {
 					log.Infof("Namespace %s added", res.Name)
 					kutil.AssignTypeKind(res)
 
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncIntoNamespace(res.Name)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncIntoNamespace(res.Name)
 					}
 				}
 			},

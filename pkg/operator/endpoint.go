@@ -50,7 +50,8 @@ func (op *Operator) WatchEndpoints() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if reflect.DeepEqual(oldRes.Subsets, newRes.Subsets) || !op.Config.APIServer.EnableReverseIndex {
+				ri := op.ReverseIndex()
+				if reflect.DeepEqual(oldRes.Subsets, newRes.Subsets) || ri == nil {
 					return
 				}
 
@@ -78,7 +79,7 @@ func (op *Operator) WatchEndpoints() {
 							newPods[podRef.String()] = pod
 							if _, ok := oldPods[podRef.String()]; !ok {
 								// This Pod reference is in update Endpoint, New Pod Added
-								op.ReverseIndex.Service.AddPodForService(svc, pod)
+								ri.Service.AddPodForService(svc, pod)
 							}
 						}
 					}
@@ -87,7 +88,7 @@ func (op *Operator) WatchEndpoints() {
 				for ref, pod := range oldPods {
 					if _, ok := newPods[ref]; !ok {
 						// Pod ref not found in New Endpoint, Removed
-						op.ReverseIndex.Service.DeletePodForService(svc, pod)
+						ri.Service.DeletePodForService(svc, pod)
 					}
 				}
 			},

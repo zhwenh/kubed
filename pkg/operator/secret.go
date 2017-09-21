@@ -42,13 +42,14 @@ func (op *Operator) WatchSecrets() {
 					log.Infof("Secret %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleAdd(util.ObfuscateSecret(*res)); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleAdd(util.ObfuscateSecret(*res)); err != nil {
 							log.Errorln(err)
 						}
 					}
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncSecret(nil, res)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncSecret(nil, res)
 					}
 				}
 			},
@@ -57,16 +58,18 @@ func (op *Operator) WatchSecrets() {
 					log.Infof("Secret %s@%s deleted", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleDelete(util.ObfuscateSecret(*res)); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleDelete(util.ObfuscateSecret(*res)); err != nil {
 							log.Errorln(err)
 						}
 					}
-					if op.TrashCan != nil {
-						op.TrashCan.Delete(res.TypeMeta, res.ObjectMeta, util.ObfuscateSecret(*res))
+					tc := op.TrashCan()
+					if tc != nil {
+						tc.Delete(res.TypeMeta, res.ObjectMeta, util.ObfuscateSecret(*res))
 					}
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncSecret(res, nil)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncSecret(res, nil)
 					}
 				}
 			},
@@ -84,18 +87,20 @@ func (op *Operator) WatchSecrets() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if op.Config.APIServer.EnableSearchIndex {
-					op.SearchIndex.HandleUpdate(util.ObfuscateSecret(*oldRes), util.ObfuscateSecret(*newRes))
+				si := op.SearchIndex()
+				if si != nil {
+					si.HandleUpdate(util.ObfuscateSecret(*oldRes), util.ObfuscateSecret(*newRes))
 				}
 				if !reflect.DeepEqual(oldRes.Labels, newRes.Labels) ||
 					!reflect.DeepEqual(oldRes.Annotations, newRes.Annotations) ||
 					!reflect.DeepEqual(oldRes.Data, newRes.Data) {
-					if op.TrashCan != nil && op.Config.RecycleBin.HandleUpdates {
-						op.TrashCan.Update(newRes.TypeMeta, newRes.ObjectMeta, util.ObfuscateSecret(*oldRes), util.ObfuscateSecret(*newRes))
+					tc := op.TrashCan()
+					if tc != nil && op.Config.RecycleBin.HandleUpdates {
+						tc.Update(newRes.TypeMeta, newRes.ObjectMeta, util.ObfuscateSecret(*oldRes), util.ObfuscateSecret(*newRes))
 					}
 
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncSecret(oldRes, newRes)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncSecret(oldRes, newRes)
 					}
 				}
 			},

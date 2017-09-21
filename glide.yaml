@@ -63,6 +63,8 @@ import:
   repo: https://github.com/appscode/go-version.git
   version: master
   vcs: git
+- package: github.com/fsnotify/fsnotify
+  version: master
 testImport:
 - package: github.com/google/certificate-transparency
 - package: github.com/stretchr/testify

@@ -43,14 +43,16 @@ func (op *Operator) WatchPrometheusV1() {
 					log.Infof("Prometheus %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleAdd(obj); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleAdd(obj); err != nil {
 							log.Errorln(err)
 						}
 					}
 
-					if op.Config.APIServer.EnableReverseIndex {
-						if err := op.ReverseIndex.Prometheus.Add(res); err != nil {
+					ri := op.ReverseIndex()
+					if ri != nil {
+						if err := ri.Prometheus.Add(res); err != nil {
 							log.Errorln(err)
 						}
 					}
@@ -61,20 +63,23 @@ func (op *Operator) WatchPrometheusV1() {
 					log.Infof("Prometheus %s@%s deleted", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleDelete(obj); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleDelete(obj); err != nil {
 							log.Errorln(err)
 						}
 					}
 
-					if op.Config.APIServer.EnableReverseIndex {
-						if err := op.ReverseIndex.Prometheus.Delete(res); err != nil {
+					ri := op.ReverseIndex()
+					if ri != nil {
+						if err := ri.Prometheus.Delete(res); err != nil {
 							log.Errorln(err)
 						}
 					}
 
-					if op.TrashCan != nil {
-						op.TrashCan.Delete(res.TypeMeta, res.ObjectMeta, obj)
+					tc := op.TrashCan()
+					if tc != nil {
+						tc.Delete(res.TypeMeta, res.ObjectMeta, obj)
 					}
 				}
 			},
@@ -92,21 +97,24 @@ func (op *Operator) WatchPrometheusV1() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if op.Config.APIServer.EnableSearchIndex {
-					op.SearchIndex.HandleUpdate(old, new)
+				si := op.SearchIndex()
+				if si != nil {
+					si.HandleUpdate(old, new)
 				}
 
-				if op.Config.APIServer.EnableReverseIndex {
-					if err := op.ReverseIndex.Prometheus.Update(oldRes, newRes); err != nil {
+				ri := op.ReverseIndex()
+				if ri != nil {
+					if err := ri.Prometheus.Update(oldRes, newRes); err != nil {
 						log.Errorln(err)
 					}
 				}
 
-				if op.TrashCan != nil && op.Config.RecycleBin.HandleUpdates {
+				tc := op.TrashCan()
+				if tc != nil && op.Config.RecycleBin.HandleUpdates {
 					if !reflect.DeepEqual(oldRes.Labels, newRes.Labels) ||
 						!reflect.DeepEqual(oldRes.Annotations, newRes.Annotations) ||
 						!reflect.DeepEqual(oldRes.Spec, newRes.Spec) {
-						op.TrashCan.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
+						tc.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
 					}
 				}
 			},

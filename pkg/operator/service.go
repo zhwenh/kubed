@@ -41,21 +41,23 @@ func (op *Operator) watchService() {
 					log.Infof("Service %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleAdd(obj); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleAdd(obj); err != nil {
 							log.Errorln(err)
 						}
 					}
-					if op.Config.APIServer.EnableReverseIndex {
-						op.ReverseIndex.Service.Add(res)
-						if op.ReverseIndex.ServiceMonitor != nil {
+					ri := op.ReverseIndex()
+					if ri != nil {
+						ri.Service.Add(res)
+						if ri.ServiceMonitor != nil {
 							serviceMonitors, err := op.PromClient.ServiceMonitors(apiv1.NamespaceAll).List(metav1.ListOptions{})
 							if err != nil {
 								log.Errorln(err)
 								return
 							}
 							if serviceMonitorList, ok := serviceMonitors.(*pcm.ServiceMonitorList); ok {
-								op.ReverseIndex.ServiceMonitor.AddService(res, serviceMonitorList.Items)
+								ri.ServiceMonitor.AddService(res, serviceMonitorList.Items)
 							}
 						}
 					}
@@ -66,19 +68,22 @@ func (op *Operator) watchService() {
 					log.Infof("Service %s@%s deleted", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleDelete(obj); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleDelete(obj); err != nil {
 							log.Errorln(err)
 						}
 					}
-					if op.Config.APIServer.EnableReverseIndex {
-						op.ReverseIndex.Service.Delete(res)
-						if op.ReverseIndex.ServiceMonitor != nil {
-							op.ReverseIndex.ServiceMonitor.DeleteService(res)
+					ri := op.ReverseIndex()
+					if ri != nil {
+						ri.Service.Delete(res)
+						if ri.ServiceMonitor != nil {
+							ri.ServiceMonitor.DeleteService(res)
 						}
 					}
-					if op.TrashCan != nil {
-						op.TrashCan.Delete(res.TypeMeta, res.ObjectMeta, obj)
+					tc := op.TrashCan()
+					if tc != nil {
+						tc.Delete(res.TypeMeta, res.ObjectMeta, obj)
 					}
 				}
 			},
@@ -96,17 +101,20 @@ func (op *Operator) watchService() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if op.Config.APIServer.EnableSearchIndex {
-					op.SearchIndex.HandleUpdate(old, new)
+				si := op.SearchIndex()
+				if si != nil {
+					si.HandleUpdate(old, new)
 				}
-				if op.Config.APIServer.EnableReverseIndex {
-					op.ReverseIndex.Service.Update(oldRes, newRes)
+				ri := op.ReverseIndex()
+				if ri != nil {
+					ri.Service.Update(oldRes, newRes)
 				}
-				if op.TrashCan != nil && op.Config.RecycleBin.HandleUpdates {
+				tc := op.TrashCan()
+				if tc != nil && op.Config.RecycleBin.HandleUpdates {
 					if !reflect.DeepEqual(oldRes.Labels, newRes.Labels) ||
 						!reflect.DeepEqual(oldRes.Annotations, newRes.Annotations) ||
 						!reflect.DeepEqual(oldRes.Spec, newRes.Spec) {
-						op.TrashCan.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
+						tc.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
 					}
 				}
 			},

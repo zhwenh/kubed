@@ -42,10 +42,10 @@ func (op *Operator) WatchCertificateSigningRequests() {
 					log.Infof("CertificateSigningRequest %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Eventer != nil &&
+					if op.eventer != nil &&
 						op.Config.EventForwarder.CSREvents.Handle &&
 						util.IsRecent(res.ObjectMeta.CreationTimestamp) {
-						err := op.Eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
+						err := op.eventer.Forward(res.TypeMeta, res.ObjectMeta, "added", obj)
 						if err != nil {
 							log.Errorln(err)
 						}
@@ -57,8 +57,9 @@ func (op *Operator) WatchCertificateSigningRequests() {
 					log.Infof("CertificateSigningRequest %s@%s deleted", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.TrashCan != nil {
-						op.TrashCan.Delete(res.TypeMeta, res.ObjectMeta, obj)
+					tc := op.TrashCan()
+					if tc != nil {
+						tc.Delete(res.TypeMeta, res.ObjectMeta, obj)
 					}
 				}
 			},
@@ -76,11 +77,11 @@ func (op *Operator) WatchCertificateSigningRequests() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if op.Eventer != nil &&
+				if op.eventer != nil &&
 					op.Config.EventForwarder.CSREvents.Handle {
 					for _, cond := range newRes.Status.Conditions {
 						if util.IsRecent(cond.LastUpdateTime) {
-							err := op.Eventer.Forward(newRes.TypeMeta, newRes.ObjectMeta, string(cond.Type), newRes)
+							err := op.eventer.Forward(newRes.TypeMeta, newRes.ObjectMeta, string(cond.Type), newRes)
 							if err != nil {
 								log.Errorln(err)
 							}
@@ -88,11 +89,12 @@ func (op *Operator) WatchCertificateSigningRequests() {
 					}
 				}
 
-				if op.TrashCan != nil && op.Config.RecycleBin.HandleUpdates {
+				tc := op.TrashCan()
+				if tc != nil && op.Config.RecycleBin.HandleUpdates {
 					if !reflect.DeepEqual(oldRes.Labels, newRes.Labels) ||
 						!reflect.DeepEqual(oldRes.Annotations, newRes.Annotations) ||
 						!reflect.DeepEqual(oldRes.Spec, newRes.Spec) {
-						op.TrashCan.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
+						tc.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
 					}
 				}
 			},

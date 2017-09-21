@@ -42,13 +42,14 @@ func (op *Operator) WatchConfigMaps() {
 					log.Infof("ConfigMap %s@%s added", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleAdd(obj); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleAdd(obj); err != nil {
 							log.Errorln(err)
 						}
 					}
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncConfigMap(nil, res)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncConfigMap(nil, res)
 					}
 				}
 			},
@@ -57,16 +58,18 @@ func (op *Operator) WatchConfigMaps() {
 					log.Infof("ConfigMap %s@%s deleted", res.Name, res.Namespace)
 					kutil.AssignTypeKind(res)
 
-					if op.Config.APIServer.EnableSearchIndex {
-						if err := op.SearchIndex.HandleDelete(obj); err != nil {
+					si := op.SearchIndex()
+					if si != nil {
+						if err := si.HandleDelete(obj); err != nil {
 							log.Errorln(err)
 						}
 					}
-					if op.TrashCan != nil {
-						op.TrashCan.Delete(res.TypeMeta, res.ObjectMeta, obj)
+					tc := op.TrashCan()
+					if tc != nil {
+						tc.Delete(res.TypeMeta, res.ObjectMeta, obj)
 					}
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncConfigMap(res, nil)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncConfigMap(res, nil)
 					}
 				}
 			},
@@ -84,18 +87,20 @@ func (op *Operator) WatchConfigMaps() {
 				kutil.AssignTypeKind(oldRes)
 				kutil.AssignTypeKind(newRes)
 
-				if op.Config.APIServer.EnableSearchIndex {
-					op.SearchIndex.HandleUpdate(old, new)
+				si := op.SearchIndex()
+				if si != nil {
+					si.HandleUpdate(old, new)
 				}
 				if !reflect.DeepEqual(oldRes.Labels, newRes.Labels) ||
 					!reflect.DeepEqual(oldRes.Annotations, newRes.Annotations) ||
 					!reflect.DeepEqual(oldRes.Data, newRes.Data) {
-					if op.TrashCan != nil && op.Config.RecycleBin.HandleUpdates {
-						op.TrashCan.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
+					tc := op.TrashCan()
+					if tc != nil && op.Config.RecycleBin.HandleUpdates {
+						tc.Update(newRes.TypeMeta, newRes.ObjectMeta, old, new)
 					}
 
-					if op.ConfigSyncer != nil {
-						op.ConfigSyncer.SyncConfigMap(oldRes, newRes)
+					if op.configSyncer != nil {
+						op.configSyncer.SyncConfigMap(oldRes, newRes)
 					}
 				}
 			},
