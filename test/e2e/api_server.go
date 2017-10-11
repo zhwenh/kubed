@@ -161,6 +161,15 @@ var _ = Describe("Kubed api server", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
+				Eventually(func() int {
+					pods, err = f.KubeClient.CoreV1().Pods(f.Namespace()).List(metav1.ListOptions{
+						LabelSelector: labels.SelectorFromSet(map[string]string{"app": svcName}).String(),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					return len(pods.Items)
+				}).Should(BeNumerically(">=", 1))
+
 				path := "/api/v1/namespaces/" + pods.Items[0].Namespace + "/pods/" + pods.Items[0].Name + "/services"
 				Expect(len(KubedEnpoint)).Should(BeNumerically(">=", 1))
 
