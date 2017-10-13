@@ -22,10 +22,11 @@ var _ = Describe("Kubed api server", func() {
 		f *framework.Invocation
 	)
 	BeforeEach(func() {
-		Expect(0).Should(Equal(0))
 		f = root.Invoke()
+
 		file, err := ioutil.ReadFile(filepath.Join(homedir.HomeDir(), "go/src/github.com/appscode/kubed/docs/examples/apiserver/config.yaml"))
 		Expect(err).NotTo(HaveOccurred())
+
 		secret := &apiv1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
@@ -42,7 +43,6 @@ var _ = Describe("Kubed api server", func() {
 				"config.yaml": file,
 			},
 		}
-
 		_, err = f.KubeClient.CoreV1().Secrets("kube-system").Update(secret)
 		Expect(err).NotTo(HaveOccurred())
 	})
