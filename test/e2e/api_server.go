@@ -11,8 +11,6 @@ import (
 	apiv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
-	"os/exec"
-	"strings"
 	"github.com/appscode/go/crypto/rand"
 	"net/http"
 )
@@ -54,40 +52,11 @@ var _ = Describe("Kubed api server", func() {
 	Describe("Kubed api server: Search", func() {
 		Context("Dashboard search", func() {
 			var (
-				KubedEnpoint []string
 				svcName      string
 				deployName   string
 				request      *http.Request
 			)
 			BeforeEach(func() {
-				kubedSvc, err := f.KubeClient.CoreV1().Services("kube-system").Get("kubed-operator", metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				kubedSvc.Spec.Type = "LoadBalancer"
-				_, err = f.KubeClient.CoreV1().Services("kube-system").Update(kubedSvc)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(func() error {
-					var outputs []byte
-					outputs, err = exec.Command(
-						"/usr/local/bin/minikube",
-						"service",
-						"kubed-operator",
-						"--url",
-						"-n",
-						"kube-system",
-					).CombinedOutput()
-					if err == nil {
-						for _, output := range strings.Split(string(outputs), "\n") {
-							if strings.HasPrefix(output, "http") {
-								KubedEnpoint = append(KubedEnpoint, output)
-							}
-						}
-						return nil
-					}
-					return err
-				}, "5m", "10s").Should(BeNil())
-
 				svcName = rand.WithUniqSuffix("kubed-svc")
 				service := &apiv1.Service{
 					TypeMeta: metav1.TypeMeta{
@@ -150,7 +119,7 @@ var _ = Describe("Kubed api server", func() {
 					},
 				}
 
-				_, err = f.KubeClient.ExtensionsV1beta1().Deployments(f.Namespace()).Create(deploy)
+				_, err := f.KubeClient.ExtensionsV1beta1().Deployments(f.Namespace()).Create(deploy)
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = f.KubeClient.CoreV1().Services(f.Namespace()).Create(service)
@@ -171,9 +140,8 @@ var _ = Describe("Kubed api server", func() {
 				}).Should(BeNumerically(">=", 1))
 
 				path := "/api/v1/namespaces/" + pods.Items[0].Namespace + "/pods/" + pods.Items[0].Name + "/services"
-				Expect(len(KubedEnpoint)).Should(BeNumerically(">=", 1))
 
-				request, err = http.NewRequest(http.MethodGet, KubedEnpoint[0]+path, nil)
+				request, err = http.NewRequest(http.MethodGet, "http://localhost:8080"+path, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
